@@ -81,40 +81,77 @@ int main(void)
   int child_status;
   pid_t pid;
 
-  type_prompt();     // Display the prompt
-  read_command(cmd); // Read a command from the user
+  while (1) {
+    type_prompt();     // Display the prompt
+    read_command(cmd); // Read a command from the user
 
-  // If the command is "exit", break out of the loop to terminate the shell
-  if (strcmp(cmd[0], "exit") == 0)
-    // break;
-    return 0;
+    // If the command empty, go to the next loop
+    if (cmd[0] == NULL)
+        continue;
 
-  // Formulate the full path of the command to be executed
-  char full_path[PATH_MAX];
-  char cwd[1024];
-  if (getcwd(cwd, sizeof(cwd)) != NULL)
-  {
+    // If the command is "exit", break out of the loop to terminate the shell
+    if (strcmp(cmd[0], "exit") == 0)
+      // break;
+      return 0;
 
-    snprintf(full_path, sizeof(full_path), "%s/bin/%s", cwd, cmd[0]);
+    pid = fork();
+
+    if (pid < 0)
+    {
+        // Fork failed child not created
+        printf("Fork failed");
+        exit(1);
+    }
+    else if (pid == 0)
+    {
+      // Child process available
+      // Formulate the full path of the command to be executed
+      char full_path[PATH_MAX];
+      char cwd[1024];
+      if (getcwd(cwd, sizeof(cwd)) != NULL)
+      {
+
+        snprintf(full_path, sizeof(full_path), "%s/bin/%s", cwd, cmd[0]);
+      }
+      else
+      {
+        printf("Failed to get current working directory.");
+        exit(1);
+      }
+
+      execv(full_path, cmd);
+
+      // If execv returns, command execution has failed
+      printf("Command %s not found\n", cmd[0]);
+      exit(1);
+    }
+    else
+    {
+      // Parent process
+      waitpid(pid, &child_status, 0);
+
+      // Check the exit status of the child process
+      if (WIFEXITED(child_status))
+      {
+          int exit_status = WEXITSTATUS(child_status);
+          if (exit_status != 0)
+          {
+              printf("Command exited with status %d\n", exit_status);
+          }
+      }
+      else if (WIFSIGNALED(child_status))
+      {
+          printf("Command terminated by signal %d\n", WTERMSIG(child_status));
+      }
+
+      // Free the allocated memory for the command arguments
+      for (int i = 0; cmd[i] != NULL; i++)
+      {
+          free(cmd[i]);
+      }
+      // Avoid double free() detection error
+      memset(cmd, 0, sizeof(cmd));
+    }
   }
-  else
-  {
-    printf("Failed to get current working directory.");
-    exit(1);
-  }
-
-  execv(full_path, cmd);
-
-  // If execv returns, command execution has failed
-  printf("Command %s not found\n", cmd[0]);
-  exit(0);
-
-  // Free the allocated memory for the command arguments before exiting
-  for (int i = 0; cmd[i] != NULL; i++)
-  {
-    free(cmd[i]);
-  }
-  memset(cwd, '\0', sizeof(cwd)); // clear the cwd array
-
   return 0;
 }
