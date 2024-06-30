@@ -240,12 +240,8 @@ int main(void)
       if (getcwd(cwd, sizeof(cwd)) != NULL)
       {
         snprintf(full_path, sizeof(full_path), "%s/bin/%s", project_dir, cmd[0]);
-        printf("Trying to execute: %s\n", full_path); // Debugging line
+        printf("Trying to execute: %s\n", full_path); // Debugg line
         execv(full_path, cmd);
-
-        // Try executing command directly from PATH
-        printf("Trying to execute from PATH: %s\n", cmd[0]); // Debugging line
-        execvp(cmd[0], cmd);
 
         printf("Command %s not found\n", cmd[0]);
         exit(1);
