@@ -184,6 +184,108 @@ int unset_env_var(char **args)
   return 1;
 }
 
+void execute_command(char **cmd)
+{
+  int child_status;
+  pid_t pid;
+
+  pid = fork();
+
+  if (pid < 0)
+  {
+    printf("Fork failed");
+    exit(1);
+  }
+  else if (pid == 0)
+  {
+    char full_path[PATH_MAX];
+    char *project_dir = getenv("PWD");
+    snprintf(full_path, sizeof(full_path), "%s/bin/%s", project_dir, cmd[0]);
+
+    execv(full_path, cmd);
+
+    execvp(cmd[0], cmd);
+
+    printf("Command %s not found\n", cmd[0]);
+    _exit(1);
+  }
+  else
+  {
+    waitpid(pid, &child_status, 0);
+
+    if (WIFEXITED(child_status))
+    {
+      int exit_status = WEXITSTATUS(child_status);
+      if (exit_status != 0)
+      {
+        printf("Command exited with status %d\n", exit_status);
+      }
+    }
+    else if (WIFSIGNALED(child_status))
+    {
+      printf("Command terminated by signal %d\n", WTERMSIG(child_status));
+    }
+
+    for (int i = 0; cmd[i] != NULL; i++)
+    {
+      free(cmd[i]);
+    }
+    memset(cmd, 0, sizeof(cmd));
+  }
+}
+
+void execute_rc_file(const char *filename)
+{
+  FILE *file = fopen(filename, "r");
+  if (file == NULL)
+  {
+    perror("Failed to open .rc file");
+    return;
+  }
+
+  char line[MAX_LINE];
+  while (fgets(line, sizeof(line), file))
+  {
+    if (line[0] == '\n' || line[0] == '#')
+    {
+      continue; // Skip empty lines and comments
+    }
+
+    char *cmd[MAX_ARGS];
+    char *command_token = strtok(line, " \n");
+    int i = 0;
+
+    while (command_token != NULL)
+    {
+      cmd[i++] = strdup(command_token);
+      command_token = strtok(NULL, " \n");
+    }
+
+    cmd[i] = NULL;
+
+    if (cmd[0] == NULL)
+    {
+      continue;
+    }
+
+    for (int command_index = 0; command_index < num_builtin_functions(); command_index++)
+    {
+      if (strcmp(cmd[0], builtin_commands[command_index]) == 0)
+      {
+        (*builtin_command_func[command_index])(cmd);
+        goto next_command;
+      }
+    }
+
+    execute_command(cmd);
+
+  next_command:
+    continue;
+  }
+
+  fclose(file);
+}
+
 // The main function where the shell's execution begins
 int main(void)
 {
@@ -200,8 +302,12 @@ int main(void)
     exit(1);
   }
 
+  // Execute commands from .cseshellrc
+  execute_rc_file(".cseshellrc");
+
   while (1)
   {
+
     type_prompt();     // Display the prompt
     read_command(cmd); // Read a command from the user
 
@@ -222,58 +328,7 @@ int main(void)
         goto next_command; // Skip forking if a built-in command was executed
       }
     }
-
-    pid = fork();
-
-    if (pid < 0)
-    {
-      // Fork failed child not created
-      printf("Fork failed");
-      exit(1);
-    }
-    else if (pid == 0)
-    {
-      // Child process available
-      // Formulate the full path of the command to be executed
-      char full_path[PATH_MAX];
-      char cwd[1024];
-      if (getcwd(cwd, sizeof(cwd)) != NULL)
-      {
-        snprintf(full_path, sizeof(full_path), "%s/bin/%s", project_dir, cmd[0]);
-        printf("Trying to execute: %s\n", full_path); // Debugg line
-        execv(full_path, cmd);
-
-        printf("Command %s not found\n", cmd[0]);
-        exit(1);
-      }
-    }
-    else
-    {
-      // Parent process
-      waitpid(pid, &child_status, 0);
-
-      // Check the exit status of the child process
-      if (WIFEXITED(child_status))
-      {
-        int exit_status = WEXITSTATUS(child_status);
-        if (exit_status != 0)
-        {
-          printf("Command exited with status %d\n", exit_status);
-        }
-      }
-      else if (WIFSIGNALED(child_status))
-      {
-        printf("Command terminated by signal %d\n", WTERMSIG(child_status));
-      }
-
-      // Free the allocated memory for the command arguments
-      for (int i = 0; cmd[i] != NULL; i++)
-      {
-        free(cmd[i]);
-      }
-      // Avoid double free() detection error
-      memset(cmd, 0, sizeof(cmd));
-    }
+    execute_command(cmd);
   next_command:
     continue;
   }

@@ -1,0 +1,4 @@
+setenv TEST=value
+cal
+cd files
+ld
