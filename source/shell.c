@@ -73,6 +73,117 @@ void type_prompt()
   printf("$$ ");  // Print the shell prompt
 }
 
+// Helper function to figure out how many built-in commands are supported by the shell
+int num_builtin_functions()
+{
+  return sizeof(builtin_commands) / sizeof(char *);
+}
+
+int shell_exit(char **args)
+{
+  return 0;
+}
+
+// Handler functions for built-in commands
+int shell_cd(char **args)
+{
+  if (args[1] == NULL)
+  {
+    fprintf(stderr, "shell: expected argument to \"cd\"\n");
+  }
+  else
+  {
+    if (chdir(args[1]) != 0)
+    {
+      perror("shell");
+    }
+  }
+  return 1;
+}
+
+int shell_help(char **args)
+{
+  printf("Builtin commands:\n");
+  for (int i = 0; i < num_builtin_functions(); i++)
+  {
+    printf("  %s\n", builtin_commands[i]);
+  }
+  return 1;
+}
+
+// Function to handle the usage command
+int shell_usage(char **args)
+{
+  if (args[1] == NULL)
+  {
+    printf("Command not given. Type: usage <command>\n");
+    return 1;
+  }
+
+  for (int i = 0; i < num_builtin_functions(); i++)
+  {
+    if (strcmp(args[1], builtin_commands[i]) == 0)
+    {
+      printf("Type: %s\n", builtin_descriptions[i]);
+      return 1;
+    }
+  }
+
+  printf("The command you gave, %s, is not part of CSEShell's built-in command\n", args[1]);
+  return 1;
+}
+
+int list_env(char **args)
+{
+  extern char **environ;
+  for (char **env = environ; *env != 0; env++)
+  {
+    printf("%s\n", *env);
+  }
+  return 1;
+}
+
+int set_env_var(char **args)
+{
+  if (args[1] == NULL)
+  {
+    fprintf(stderr, "shell: expected argument to \"setenv\"\n");
+    return 1;
+  }
+
+  char *key = strtok(args[1], "=");
+  char *value = strtok(NULL, "=");
+
+  if (key == NULL || value == NULL)
+  {
+    fprintf(stderr, "shell: expected argument to \"setenv\" in the form KEY=VALUE\n");
+    return 1;
+  }
+
+  if (setenv(key, value, 1) != 0)
+  {
+    perror("shell");
+  }
+
+  return 1;
+}
+
+int unset_env_var(char **args)
+{
+  if (args[1] == NULL)
+  {
+    fprintf(stderr, "shell: expected argument to \"unsetenv\"\n");
+    return 1;
+  }
+
+  if (unsetenv(args[1]) != 0)
+  {
+    perror("shell");
+  }
+
+  return 1;
+}
+
 // The main function where the shell's execution begins
 int main(void)
 {
@@ -81,26 +192,44 @@ int main(void)
   int child_status;
   pid_t pid;
 
-  while (1) {
+  // Get the project directory from the PWD environment variable
+  char *project_dir = getenv("PWD");
+  if (project_dir == NULL)
+  {
+    fprintf(stderr, "Failed to get PWD environment variable.\n");
+    exit(1);
+  }
+
+  while (1)
+  {
     type_prompt();     // Display the prompt
     read_command(cmd); // Read a command from the user
 
     // If the command empty, go to the next loop
     if (cmd[0] == NULL)
-        continue;
+      continue;
 
-    // If the command is "exit", break out of the loop to terminate the shell
-    if (strcmp(cmd[0], "exit") == 0)
-      // break;
-      return 0;
+    // Check for built-in commands
+    for (int command_index = 0; command_index < num_builtin_functions(); command_index++)
+    {
+      if (strcmp(cmd[0], builtin_commands[command_index]) == 0)
+      {
+        // Execute the built-in command
+        if ((*builtin_command_func[command_index])(cmd) == 0)
+        {
+          return 0; // Exit the shell if the built-in command returns 0
+        }
+        goto next_command; // Skip forking if a built-in command was executed
+      }
+    }
 
     pid = fork();
 
     if (pid < 0)
     {
-        // Fork failed child not created
-        printf("Fork failed");
-        exit(1);
+      // Fork failed child not created
+      printf("Fork failed");
+      exit(1);
     }
     else if (pid == 0)
     {
@@ -110,20 +239,17 @@ int main(void)
       char cwd[1024];
       if (getcwd(cwd, sizeof(cwd)) != NULL)
       {
+        snprintf(full_path, sizeof(full_path), "%s/bin/%s", project_dir, cmd[0]);
+        printf("Trying to execute: %s\n", full_path); // Debugging line
+        execv(full_path, cmd);
 
-        snprintf(full_path, sizeof(full_path), "%s/bin/%s", cwd, cmd[0]);
-      }
-      else
-      {
-        printf("Failed to get current working directory.");
+        // Try executing command directly from PATH
+        printf("Trying to execute from PATH: %s\n", cmd[0]); // Debugging line
+        execvp(cmd[0], cmd);
+
+        printf("Command %s not found\n", cmd[0]);
         exit(1);
       }
-
-      execv(full_path, cmd);
-
-      // If execv returns, command execution has failed
-      printf("Command %s not found\n", cmd[0]);
-      exit(1);
     }
     else
     {
@@ -133,25 +259,27 @@ int main(void)
       // Check the exit status of the child process
       if (WIFEXITED(child_status))
       {
-          int exit_status = WEXITSTATUS(child_status);
-          if (exit_status != 0)
-          {
-              printf("Command exited with status %d\n", exit_status);
-          }
+        int exit_status = WEXITSTATUS(child_status);
+        if (exit_status != 0)
+        {
+          printf("Command exited with status %d\n", exit_status);
+        }
       }
       else if (WIFSIGNALED(child_status))
       {
-          printf("Command terminated by signal %d\n", WTERMSIG(child_status));
+        printf("Command terminated by signal %d\n", WTERMSIG(child_status));
       }
 
       // Free the allocated memory for the command arguments
       for (int i = 0; cmd[i] != NULL; i++)
       {
-          free(cmd[i]);
+        free(cmd[i]);
       }
       // Avoid double free() detection error
       memset(cmd, 0, sizeof(cmd));
     }
+  next_command:
+    continue;
   }
   return 0;
 }
