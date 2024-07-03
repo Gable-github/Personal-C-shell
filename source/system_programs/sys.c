@@ -28,14 +28,6 @@ void print_sys_info()
 
     // Get the current user
     user = getenv("USER");
-    if (user == NULL)
-    {
-        pw = getpwuid(getuid());
-        if (pw)
-        {
-            user = pw->pw_name;
-        }
-    }
 
     // Print system information
     printf("Simple System Information\n");
