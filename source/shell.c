@@ -291,8 +291,6 @@ int main(void)
 {
   // Define an array to hold the command and its arguments
   char *cmd[MAX_ARGS];
-  int child_status;
-  pid_t pid;
 
   // Get the project directory from the PWD environment variable
   char *project_dir = getenv("PWD");
