@@ -69,8 +69,20 @@ void type_prompt()
 #endif
     first_time = 0;
   }
+
+  // Buffer to store the current working directory
+  char cwd[PATH_MAX];
+  if (getcwd(cwd, sizeof(cwd)) != NULL)
+  {
+    // Print the current working directory
+    printf("%s\n", cwd);
+  }
+  else
+  {
+    perror("getcwd() error");
+  }
   fflush(stdout); // Flush the output buffer
-  printf("$$ ");  // Print the shell prompt
+  printf("> ");   // Print the shell prompt
 }
 
 // Helper function to figure out how many built-in commands are supported by the shell
