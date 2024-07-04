@@ -9,6 +9,9 @@
 #define MAX_ARGS 64
 #define BIN_PATH "./bin/"
 #define PROJECT_DIR "/home/gable/programming-assignment-1-2024-team/bin/"
+#define COLOR_GREEN "\033[0;32m"
+#define COLOR_YELLOW "\033[0;33m"
+#define COLOR_RESET "\033[0m"
 
 const char *builtin_commands[] = {
     "cd",      // Changes the current directory of the shell to the specified path. If no path is given, it defaults to the user's home directory.

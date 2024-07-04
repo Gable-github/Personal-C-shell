@@ -75,14 +75,14 @@ void type_prompt()
   if (getcwd(cwd, sizeof(cwd)) != NULL)
   {
     // Print the current working directory
-    printf("%s\n", cwd);
+    printf(COLOR_YELLOW "%s\n" COLOR_RESET, cwd);
   }
   else
   {
     perror("getcwd() error");
   }
-  fflush(stdout); // Flush the output buffer
-  printf("> ");   // Print the shell prompt
+  fflush(stdout);                       // Flush the output buffer
+  printf(COLOR_GREEN "> " COLOR_RESET); // Print the shell prompt
 }
 
 // Helper function to figure out how many built-in commands are supported by the shell
@@ -196,6 +196,18 @@ int unset_env_var(char **args)
   return 1;
 }
 
+int execute_builtin_command(char **cmd)
+{
+  for (int command_index = 0; command_index < num_builtin_functions(); command_index++)
+  {
+    if (strcmp(cmd[0], builtin_commands[command_index]) == 0)
+    {
+      return (*builtin_command_func[command_index])(cmd);
+    }
+  }
+  return 0;
+}
+
 void execute_command(char **cmd)
 {
   int child_status;
@@ -280,19 +292,10 @@ void execute_rc_file(const char *filename)
       continue;
     }
 
-    for (int command_index = 0; command_index < num_builtin_functions(); command_index++)
+    if (!execute_builtin_command(cmd))
     {
-      if (strcmp(cmd[0], builtin_commands[command_index]) == 0)
-      {
-        (*builtin_command_func[command_index])(cmd);
-        goto next_command;
-      }
+      execute_command(cmd);
     }
-
-    execute_command(cmd);
-
-  next_command:
-    continue;
   }
 
   fclose(file);
@@ -321,26 +324,10 @@ int main(void)
     type_prompt();     // Display the prompt
     read_command(cmd); // Read a command from the user
 
-    // If the command empty, go to the next loop
-    if (cmd[0] == NULL)
-      continue;
-
-    // Check for built-in commands
-    for (int command_index = 0; command_index < num_builtin_functions(); command_index++)
+    if (!execute_builtin_command(cmd))
     {
-      if (strcmp(cmd[0], builtin_commands[command_index]) == 0)
-      {
-        // Execute the built-in command
-        if ((*builtin_command_func[command_index])(cmd) == 0)
-        {
-          return 0; // Exit the shell if the built-in command returns 0
-        }
-        goto next_command; // Skip forking if a built-in command was executed
-      }
+      execute_command(cmd);
     }
-    execute_command(cmd);
-  next_command:
-    continue;
   }
   return 0;
 }
