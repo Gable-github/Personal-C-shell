@@ -324,6 +324,10 @@ int main(void)
     type_prompt();     // Display the prompt
     read_command(cmd); // Read a command from the user
 
+    // If the command is "exit", break out of the loop to terminate the shell
+    if (strcmp(cmd[0], "exit") == 0)
+      break;
+
     if (!execute_builtin_command(cmd))
     {
       execute_command(cmd);
