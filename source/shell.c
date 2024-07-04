@@ -222,9 +222,9 @@ void execute_command(char **cmd)
   }
   else if (pid == 0)
   {
-    char full_path[PATH_MAX];
-    char *project_dir = getenv("PWD");
-    snprintf(full_path, sizeof(full_path), "%s/bin/%s", project_dir, cmd[0]);
+    // char full_path[PATH_MAX];
+    // char *project_dir = getenv("PWD");
+    // snprintf(full_path, sizeof(full_path), "%s/bin/%s", project_dir, cmd[0]);
 
     // execv(full_path, cmd);
 
@@ -282,21 +282,6 @@ void execute_rc_file(const char *filename)
     // Remove trailing newline character
     line[strcspn(line, "\n")] = '\0';
 
-    if (strchr(line, '=') != NULL)
-    {
-      char *key = strtok(line, "=");
-      char *value = strtok(NULL, "=");
-
-      if (key != NULL && value != NULL)
-      {
-        if (setenv(key, value, 1) != 0)
-        {
-          perror("shell");
-        }
-        continue;
-      }
-    }
-
     char *cmd[MAX_ARGS];
     char *command_token = strtok(line, " \n");
     int i = 0;
@@ -314,7 +299,20 @@ void execute_rc_file(const char *filename)
       continue;
     }
 
-    execute_command(cmd);
+    if (strncmp(line, "PATH=", 5) == 0)
+    {
+      char *path = line + 5;
+      path[strlen(path)] = '\0';
+      setenv("PATH", path, 1);
+    }
+    else
+    {
+      // Execute the command
+      if (!execute_builtin_command(cmd))
+      {
+        execute_command(cmd);
+      }
+    }
   }
 
   fclose(file);
