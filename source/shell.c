@@ -342,6 +342,10 @@ int main(void)
     read_command(cmd); // Read a command from the user
 
     // If the command is "exit", break out of the loop to terminate the shell
+    if (cmd[0] == NULL)
+      continue; // Skips command exceution if the command is empty
+
+    // If the command is "exit", break out of the loop to terminate the shell
     if (strcmp(cmd[0], "exit") == 0)
       break;
 
