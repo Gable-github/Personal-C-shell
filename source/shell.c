@@ -226,9 +226,13 @@ void execute_command(char **cmd)
     char *project_dir = getenv("PWD");
     snprintf(full_path, sizeof(full_path), "%s/bin/%s", project_dir, cmd[0]);
 
-    execv(full_path, cmd);
+    // execv(full_path, cmd);
 
     execvp(cmd[0], cmd);
+
+    // If execvp returns, it must have failed
+    perror("execvp failed");
+    // return 1;
 
     printf("Command %s not found\n", cmd[0]);
     _exit(1);
@@ -275,6 +279,24 @@ void execute_rc_file(const char *filename)
       continue; // Skip empty lines and comments
     }
 
+    // Remove trailing newline character
+    line[strcspn(line, "\n")] = '\0';
+
+    if (strchr(line, '=') != NULL)
+    {
+      char *key = strtok(line, "=");
+      char *value = strtok(NULL, "=");
+
+      if (key != NULL && value != NULL)
+      {
+        if (setenv(key, value, 1) != 0)
+        {
+          perror("shell");
+        }
+        continue;
+      }
+    }
+
     char *cmd[MAX_ARGS];
     char *command_token = strtok(line, " \n");
     int i = 0;
@@ -292,10 +314,7 @@ void execute_rc_file(const char *filename)
       continue;
     }
 
-    if (!execute_builtin_command(cmd))
-    {
-      execute_command(cmd);
-    }
+    execute_command(cmd);
   }
 
   fclose(file);
