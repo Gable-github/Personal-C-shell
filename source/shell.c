@@ -41,8 +41,24 @@ void read_command(char **cmd)
   // Continue parsing the line into words and store them in the array
   while (command_token != NULL)
   {
-    array[i++] = strdup(command_token);  // Duplicate the token and store it
-    command_token = strtok(NULL, " \n"); // Get the next token
+    char *alias_command = get_alias_command(command_token);
+    if (alias_command)
+    {
+      // Expand alias command and split into tokens
+      char alias_copy[MAX_LINE];
+      strncpy(alias_copy, alias_command, MAX_LINE);
+      char *alias_token = strtok(alias_copy, " \n");
+      while (alias_token != NULL)
+      {
+        array[i++] = strdup(alias_token);
+        alias_token = strtok(NULL, " \n");
+      }
+    }
+    else
+    {
+      array[i++] = strdup(command_token);
+    }
+    command_token = strtok(NULL, " \n");
   }
 
   // Copy the parsed command and its parameters to the cmd array
@@ -193,6 +209,103 @@ int unset_env_var(char **args)
     perror("shell");
   }
 
+  return 1;
+}
+
+#define MAX_ALIASES 50
+Alias aliases[MAX_ALIASES];
+int alias_count = 0;
+
+// Function to get the alias command for a given alias name
+char *get_alias_command(const char *name)
+{
+  for (int i = 0; i < alias_count; i++)
+  {
+    if (strcmp(name, aliases[i].name) == 0)
+    {
+      return aliases[i].command;
+    }
+  }
+  return NULL;
+}
+
+// Function to set a new alias
+int set_alias(char **args)
+{
+  if (args[1] == NULL || args[2] == NULL)
+  {
+    fprintf(stderr, "Usage: alias <name> <command>\n");
+    return 1;
+  }
+
+  // Concatenate all parts of the alias command into a single string
+  char command[MAX_LINE] = "";
+  for (int i = 2; args[i] != NULL; i++)
+  {
+    strcat(command, args[i]);
+    if (args[i + 1] != NULL)
+    {
+      strcat(command, " ");
+    }
+  }
+
+  // Check if the alias already exists and update it
+  for (int i = 0; i < alias_count; i++)
+  {
+    if (strcmp(args[1], aliases[i].name) == 0)
+    {
+      free(aliases[i].command);
+      aliases[i].command = strdup(command);
+      return 1;
+    }
+  }
+
+  // If the alias does not exist, add a new one
+  if (alias_count >= MAX_ALIASES)
+  {
+    fprintf(stderr, "Maximum number of aliases reached.\n");
+    return 1;
+  }
+
+  aliases[alias_count].name = strdup(args[1]);
+  aliases[alias_count].command = strdup(command);
+  alias_count++;
+
+  return 1;
+}
+
+// Function to unset an alias
+int unset_alias(char **args)
+{
+  if (args[1] == NULL)
+  {
+    fprintf(stderr, "Usage: unalias <name>\n");
+    return 1;
+  }
+
+  for (int i = 0; i < alias_count; i++)
+  {
+    if (strcmp(args[1], aliases[i].name) == 0)
+    {
+      free(aliases[i].name);
+      free(aliases[i].command);
+      aliases[i] = aliases[alias_count - 1];
+      alias_count--;
+      return 1;
+    }
+  }
+
+  fprintf(stderr, "Alias not found: %s\n", args[1]);
+  return 1;
+}
+
+// Function to list all aliases
+int list_aliases(char **args)
+{
+  for (int i = 0; i < alias_count; i++)
+  {
+    printf("%s='%s'\n", aliases[i].name, aliases[i].command);
+  }
   return 1;
 }
 
