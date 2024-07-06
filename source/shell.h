@@ -20,10 +20,12 @@ const char *builtin_commands[] = {
     "usage",    // Provides a brief usage guide for the shell and its built-in command
     "env",      // Lists all the environment variables currently set in the shell
     "setenv",   // Sets or modifies an environment variable for this shell session
-    "unsetenv", // Removes an environment variable from the shell
-    "alias",
-    "unalias",
-    "aliases"};
+    "unsetenv", // Sets an alias for a command.
+    "alias",    // Sets an alias for a command.
+    "unalias",  // Removes an alias.
+    "aliases",  // Lists all defined aliases.
+    "history"   // Displays the command history.
+};
 
 // Array of built-in command descriptions
 char *builtin_descriptions[] = {
@@ -36,7 +38,8 @@ char *builtin_descriptions[] = {
     "unsetenv ENV to remove this env from the list of env variables",
     "alias <name> <command> to set an alias",
     "unalias <name> to remove an alias",
-    "aliases to list all aliases"};
+    "aliases to list all aliases",
+    "history to show command history"};
 
 // Alias related functions
 typedef struct
@@ -62,6 +65,7 @@ int set_alias(char **args);
 int unset_alias(char **args);
 int list_aliases(char **args);
 char *get_alias_command(const char *name);
+int shell_history(char **args);
 
 /*** This is array of functions, with argument char ***/
 int (*builtin_command_func[])(char **) = {
@@ -72,8 +76,10 @@ int (*builtin_command_func[])(char **) = {
     &list_env,      // builtin_command_func[4]: env
     &set_env_var,   // builtin_command_func[5]: setenv
     &unset_env_var, // builtin_command_func[6]: unsetenv
-    &set_alias,
-    &unset_alias,
-    &list_aliases};
+    &set_alias,     // builtin_command_func[7]: alias
+    &unset_alias,   // builtin_command_func[8]: unalias
+    &list_aliases,  // builtin_command_func[9]: aliases
+    &shell_history  // builtin_command_func[10]: history
+};
 
 int num_builtin_functions();

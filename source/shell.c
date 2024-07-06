@@ -1,6 +1,19 @@
 // Include the shell header file for necessary constants and function declarations
 #include "shell.h"
 
+#define MAX_HISTORY 100
+char *history[MAX_HISTORY];
+int history_count = 0;
+
+int shell_history(char **args)
+{
+  for (int i = 0; i < history_count; i++)
+  {
+    printf("%d: %s\n", i + 1, history[i]);
+  }
+  return 1;
+}
+
 // Function to read a command from the user input
 void read_command(char **cmd)
 {
@@ -34,6 +47,21 @@ void read_command(char **cmd)
   // If only the newline character was entered, return without processing
   if (count == 1)
     return;
+
+  // Store the command in history
+  if (history_count < MAX_HISTORY)
+  {
+    history[history_count++] = strdup(line);
+  }
+  else
+  {
+    free(history[0]);
+    for (int j = 1; j < MAX_HISTORY; j++)
+    {
+      history[j - 1] = history[j];
+    }
+    history[MAX_HISTORY - 1] = strdup(line);
+  }
 
   // Use strtok to parse the first token (word) of the command
   command_token = strtok(line, " \n");
